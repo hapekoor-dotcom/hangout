@@ -1,4 +1,4 @@
-import {createHash,randomUUID} from 'node:crypto'
+import {randomUUID} from 'node:crypto'
 import {supabase} from '../db/supabase.ts'
 import fienta from '../../lib/events/sources/fienta.ts'
 import {normalizeEvents} from '../../lib/events/normalize.ts'
@@ -10,7 +10,7 @@ import {canonicalTaxonomy} from './taxonomy.ts'
 export type Published={id:string;source:string;source_url:string;data:NormalizedEvent;content_hash:string;embedding_model:string|null;enrichment_version:string|null;active:boolean}
 type Checkpoint={source:NormalizedEvent;hash:string;prepared?:NormalizedEvent;preparedHash?:string;version?:string}
 export type JobStats={status:string;fetched:number;new:number;changed:number;unchanged:number;enriched:number;embeddings:number;published:number;inactive:number;failures:number;pending:number}
-const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex')
+import {stableContentHash as hash,legacyContentHash} from './hash.ts'
 const permanent='2100-01-01T00:00:00Z'
 export function localClock(now=new Date()){
  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Tallinn',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now)
@@ -54,16 +54,18 @@ export async function runIngestion(options:{daily?:boolean;now?:Date;budgetMs?:n
    if(old&&old.source!==source.source)continue
    if(old&&old.id!==source.id)source={...source,id:old.id}
    if(seen.has(source.id))continue;seen.add(source.id);seenSources.set(source.id,source)
-   const contentHash=hash(source)
-   if(!old)stats.new++;else if(old.content_hash!==contentHash)stats.changed++;else stats.unchanged++
+   const contentHash=hash(source),sameContent=Boolean(old&&(old.content_hash===contentHash||old.content_hash===legacyContentHash(source)))
+   if(!old)stats.new++;else if(!sameContent)stats.changed++;else stats.unchanged++
    try{
     if(!old)newRecords.push({id:source.id,source:source.source,source_url:source.sourceUrl,data:source,content_hash:contentHash,active:!hasPassed(source,now),last_seen_at:now.toISOString()})
-    if(!hasPassed(source,now)&&(!old||old.content_hash!==contentHash||old.embedding_model!==embeddingModel()||old.enrichment_version!==ENRICHMENT_VERSION))pending.push({source,old,hash:contentHash})
+    if(!hasPassed(source,now)&&(!old||!sameContent||old.embedding_model!==embeddingModel()||old.enrichment_version!==ENRICHMENT_VERSION))pending.push({source,old,hash:contentHash})
    }catch{logFailure('source_save',source.id)}
   }
   for(let i=0;i<newRecords.length;i+=100){const batch=newRecords.slice(i,i+100);try{await db.request('hangout_events?on_conflict=id','POST',batch,'resolution=ignore-duplicates,return=minimal')}catch{for(const row of batch)try{await db.request('hangout_events?on_conflict=id','POST',row,'resolution=ignore-duplicates,return=minimal')}catch{failedSaves.add(row.id);logFailure('source_save',row.id)}}}
   const touched=[...seenSources.values()].filter(source=>!hasPassed(source,now)).map(source=>source.id)
-  for(let i=0;i<touched.length;i+=100){try{await db.request('hangout_events?id=in.'+encodeURIComponent('('+touched.slice(i,i+100).map(id=>JSON.stringify(id)).join(',')+')'),'PATCH',{last_seen_at:now.toISOString(),active:true},'return=minimal')}catch{logFailure('last_seen')}}
+  for(let i=0;i<touched.length;i+=100){try{await db.request('hangout_events?id=in.'+encodeURIComponent('('+touched.slice(i,i+100).map(id=>JSON.stringify(id)).join(',')+')'),'PATCH',{last_seen_at:now.toISOString()},'return=minimal')}catch{logFailure('last_seen')}}
+  const reactivated=rows.filter(row=>!row.active&&seenSources.has(row.id)&&!hasPassed(seenSources.get(row.id)!,now))
+  for(let i=0;i<reactivated.length;i+=100){await db.request('hangout_events?id=in.'+encodeURIComponent('('+reactivated.slice(i,i+100).map(row=>JSON.stringify(row.id)).join(',')+')'),'PATCH',{active:true},'return=minimal')}
   // Published rows retain their last working data/vector while replacement data is staged.
   let cursor=0
   async function worker(){while(cursor<pending.length){
@@ -93,7 +95,7 @@ export async function runIngestion(options:{daily?:boolean;now?:Date;budgetMs?:n
   for(const row of rows)if(row.active&&hasPassed(seenSources.get(row.id)||row.data,now)){
    try{const id=row.id;await db.request('hangout_events?id=eq.'+encodeURIComponent(id),'PATCH',{active:false},'return=minimal');stats.inactive++}catch{logFailure('deactivate',row.id)}
   }
-  if(stats.published||stats.inactive)await revision()
+  if(stats.published||stats.inactive||reactivated.length)await revision()
   if(stats.failures||stats.pending)stats.status='partial'
   if(stats.status==='completed'&&options.daily)await db.request('hangout_search_cache?on_conflict=cache_key','POST',{cache_key:'ingest:day:'+day,payload:stats,expires_at:new Date(now.getTime()+7*86400000).toISOString()},'resolution=merge-duplicates,return=minimal')
   return stats

@@ -92,3 +92,20 @@ test('Tallinn dates and event expiry work across daylight-saving transitions',()
  assert.equal(hasPassed({...event(),date:'2026-10-21',endTime:'23:00'},now),false)
  assert.equal(hasPassed({...event(),date:'2026-10-20',startTime:'23:00',endTime:'06:00'},now),false)
 })
+test('500 existing events plus 20 new and 5 changed require only 25 enrichment/embedding operations',async()=>{
+ const f=fixture(),{normalizeEvents}=await import('../src/lib/events/normalize.ts'),{stableContentHash}=await import('../src/server/events/hash.ts')
+ const existing=normalizeEvents(Array.from({length:500},(_,i)=>event(String(i))),now)
+ for(const source of existing)f.rows.set(source.id,{id:source.id,source:'fienta',source_url:source.sourceUrl,data:{...source,aiSummary:'Already enriched.'},content_hash:stableContentHash(source),embedding_model:'text-embedding-3-small',enrichment_version:'hangout-v1',active:true,embedding:'saved-vector'})
+ const input=[...existing.map((source,i)=>i<5?{...source,description:'New searchable description.'}:source),...Array.from({length:20},(_,i)=>event(String(500+i)))]
+ const result=await runIngestion({now,fetchEvents:async()=>input})
+ assert.equal(result.new,20);assert.equal(result.changed,5);assert.equal(result.unchanged,495);assert.equal(result.enriched,25);assert.equal(result.embeddings,25);assert.equal(f.enrichCalls,25);assert.equal(f.embedCalls,25);assert.equal(f.rows.size,520)
+ const again=await runIngestion({now,fetchEvents:async()=>input.map(source=>Object.fromEntries(Object.entries(source).reverse()) as NormalizedEvent)})
+ assert.equal(again.unchanged,520);assert.equal(again.enriched,0);assert.equal(again.embeddings,0);assert.equal(f.enrichCalls,25)
+})
+test('already indexed legacy hashes remain compatible without enrichment or embedding calls',async()=>{
+ const f=fixture(),{normalizeEvents}=await import('../src/lib/events/normalize.ts'),{legacyContentHash}=await import('../src/server/events/hash.ts')
+ const source=normalizeEvents([event()],now)[0]
+ f.rows.set(source.id,{id:source.id,source:'fienta',source_url:source.sourceUrl,data:{...source,aiSummary:'Already enriched.'},content_hash:legacyContentHash(source),embedding_model:'text-embedding-3-small',enrichment_version:'hangout-v1',active:true,embedding:'saved-vector'})
+ const result=await runIngestion({now,fetchEvents:async()=>[source]})
+ assert.equal(result.unchanged,1);assert.equal(result.enriched,0);assert.equal(result.embeddings,0);assert.equal(f.enrichCalls,0);assert.equal(f.embedCalls,0)
+})

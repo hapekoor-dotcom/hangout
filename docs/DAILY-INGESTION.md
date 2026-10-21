@@ -18,7 +18,7 @@ Fienta → conservative normalization → match by source + source ID or URL →
 
 - **New:** raw normalized row is saved immediately. AI enrichment and embedding are generated; the searchable version is published once both succeed.
 - **Changed:** latest normalized source is checkpointed; the last published data/vector stays intact. Enrichment is regenerated only when title, plain description, venue, age or enrichment version changed. Image, price, date, times and coordinate-only edits reuse existing enrichment. Embeddings regenerate only when searchable/enriched text or embedding model changes.
-- **Unchanged:** only last_seen_at/active status is touched; no OpenAI call.
+- **Unchanged:** only last_seen_at is touched (an inactive future event is explicitly reactivated when seen again); no OpenAI call.
 - **Enrichment failure:** normalized source remains in a retryable checkpoint; other records continue.
 - **Embedding failure:** successful enrichment is checkpointed, so retry does not pay for that enrichment again. Existing data/vector remains available.
 - **Past events:** marked inactive based on Tallinn local date/end time; rows are retained. Missing future events remain active until factual expiry.
@@ -34,3 +34,13 @@ Safe structured logs include fetched, new, changed, unchanged, enriched, embeddi
 ## Verification
 
 `pnpm test`: source deduplication, no OpenAI for unchanged/metadata-only changes, new/changed content indexing, embedding retry without duplicate enrichment, source failure preservation, event expiry, missing future events retained, global overlap protection, daily deduplication, cron/manual authentication, DST offsets, and search reading previously published data during a failed replacement. `pnpm build` also runs the same incremental engine against the configured production services before building the UI; unchanged builds make no event enrichment/embedding calls.
+
+## Stable hashes and recurring search results
+
+Source hashes use canonical JSON with recursively sorted object keys. Property order does not make an event changed. Existing legacy hashes remain compatible, so this rollout does not re-enrich previously indexed records.
+
+Search groups exact normalized titles after time/hard filters and before vector retrieval and reranking. Normalization applies Unicode compatibility normalization, lowercase, whitespace and harmless punctuation cleanup; meaningful symbols and edition numbers remain distinct. Only the nearest eligible occurrence is shown by default. Every instance remains in the database.
+
+Explicit date/occurrence requests (for example next week, every Friday, dates for this event, all upcoming occurrences) keep individual dates. Next-week and every-weekday constraints are applied before retrieval. Later dates on detail pages are not implemented.
+
+Verification includes 500 existing records plus 20 new and 5 changed: 25 enrichment calls and 25 embeddings; a second run with reordered source properties makes zero additional calls. Legacy-hash compatibility, exact-title grouping, nearest-date selection and explicit recurrence requests are covered by tests.
