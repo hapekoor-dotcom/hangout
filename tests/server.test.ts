@@ -19,7 +19,7 @@ test('database failures never include provider body or credentials',async()=>{
 test('real pipeline contract: Fienta normalization, Supabase persistence, enrichment, vector RPC and reranking',async()=>{
  setup()
  const rows:any[]=[];let vectorCalled=false;let rerankIDs:string[]=[]
- const intent={date:null,time:null,startTime:null,endTime:null,categories:['techno'],excludedCategories:[],budgetMin:null,budgetMax:null,noiseLevel:null,noiseMax:null,kidFriendly:null,soloFriendly:null,socialContext:null,durationHours:null,nearby:false,maxDistanceKm:null,keywords:[],requiredTerms:[],excludeKids:false}
+ const intent={date:null,time:'now',startTime:null,endTime:null,categories:['techno'],excludedCategories:[],budgetMin:null,budgetMax:null,noiseLevel:null,noiseMax:null,kidFriendly:null,soloFriendly:null,socialContext:null,durationHours:null,nearby:false,maxDistanceKm:null,keywords:[],requiredTerms:[],excludeKids:false}
  globalThis.fetch=async(input,options)=>{
   const url=new URL(String(input)),method=options?.method||'GET',body=options?.body?JSON.parse(String(options.body)):{}
   if(url.hostname==='fienta.com'){
@@ -51,7 +51,7 @@ test('real pipeline contract: Fienta normalization, Supabase persistence, enrich
   throw Error('Unexpected HTTP request')
  }
  const result=await search('techno',{latitude:59.437,longitude:24.7536})
- assert.equal(rows.length,2);assert.equal(vectorCalled,true);assert.deepEqual(rerankIDs,['fienta-1']);assert.deepEqual(result.results.map(r=>r.event.id),['fienta-1']);assert.ok(result.results[0].summary);assert.equal('embedding' in result.results[0].event,false)
+ assert.equal(result.intent.time,null);assert.equal(rows.length,2);assert.equal(vectorCalled,true);assert.deepEqual(rerankIDs,['fienta-1']);assert.deepEqual(result.results.map(r=>r.event.id),['fienta-1']);assert.ok(result.results[0].summary);assert.equal('embedding' in result.results[0].event,false)
  assert.equal(JSON.stringify(result).includes('test-service-secret'),false)
 })
 test('Fienta 403 preserves existing database and stops without retries',async()=>{
