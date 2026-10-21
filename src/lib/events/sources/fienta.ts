@@ -18,9 +18,15 @@ const fienta:EventSourceAdapter={id:'fienta',async fetchEvents(){
  if(/Disallow:\s*\/(?:api(?:\/|\s)|\s*$)/im.test(robots))throw new Error('Fienta robots restriction; ingestion stopped')
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Tallinn',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
  const all:NormalizedEvent[]=[]
- for(let page=1;page<=3;page++){
-  const url=new URL(FIENTA_API);Object.entries({country:'EE',city:'Tallinn',locale:'en',starts_from:today,page:String(page),per_page:'100'}).forEach(([k,v])=>url.searchParams.set(k,v))
-  const data=await (await get(url.href)).json();all.push(...parseFienta(data));if(!data.pagination?.next_page_url)break
+ for(let page=1;page<=100;page++){
+  // Documented maximum page size is 1000; keep requests sequential and below 80/min.
+  if(page>1)await new Promise(resolve=>setTimeout(resolve,1000))
+  const url=new URL(FIENTA_API);Object.entries({country:'EE',city:'Tallinn',locale:'en',starts_from:today,page:String(page),per_page:'1000'}).forEach(([k,v])=>url.searchParams.set(k,v))
+  const data=await (await get(url.href)).json()
+  if(data.pagination?.page!==undefined&&Number(data.pagination.page)!==page)throw Error('Fienta returned an unexpected page; incomplete snapshot rejected')
+  all.push(...parseFienta(data))
+  if(!data.pagination?.next_page_url)return all
+  if(page===100)throw Error('Fienta pagination safety limit reached; incomplete snapshot rejected')
  }
  return all
 }}

@@ -48,7 +48,7 @@ export async function runIngestion(options:{daily?:boolean;now?:Date;budgetMs?:n
   try{fetched=normalizeEvents(await (options.fetchEvents||(()=>fienta.fetchEvents()))(),now);if(!fetched.length)throw Error('Empty source response')}
   catch{logFailure('source_fetch');stats.status='source_unavailable';return stats}
   stats.fetched=fetched.length
-  const pending:{source:NormalizedEvent;old?:Published;hash:string}[]=[],seen=new Set<string>(),seenSources=new Map<string,NormalizedEvent>()
+  const pending:{source:NormalizedEvent;old?:Published;hash:string}[]=[],seen=new Set<string>(),seenSources=new Map<string,NormalizedEvent>(),newRecords:any[]=[],failedSaves=new Set<string>()
   for(let source of fetched){
    const old=byId.get(source.id)||byUrl.get(source.source+'|'+source.sourceUrl)
    if(old&&old.source!==source.source)continue
@@ -57,16 +57,19 @@ export async function runIngestion(options:{daily?:boolean;now?:Date;budgetMs?:n
    const contentHash=hash(source)
    if(!old)stats.new++;else if(old.content_hash!==contentHash)stats.changed++;else stats.unchanged++
    try{
-    if(!old){await db.request('hangout_events?on_conflict=id','POST',{id:source.id,source:source.source,source_url:source.sourceUrl,data:source,content_hash:contentHash,active:!hasPassed(source,now),last_seen_at:now.toISOString()},'resolution=ignore-duplicates,return=minimal')}
+    if(!old)newRecords.push({id:source.id,source:source.source,source_url:source.sourceUrl,data:source,content_hash:contentHash,active:!hasPassed(source,now),last_seen_at:now.toISOString()})
     if(!hasPassed(source,now)&&(!old||old.content_hash!==contentHash||old.embedding_model!==embeddingModel()||old.enrichment_version!==ENRICHMENT_VERSION))pending.push({source,old,hash:contentHash})
    }catch{logFailure('source_save',source.id)}
   }
+  for(let i=0;i<newRecords.length;i+=100){const batch=newRecords.slice(i,i+100);try{await db.request('hangout_events?on_conflict=id','POST',batch,'resolution=ignore-duplicates,return=minimal')}catch{for(const row of batch)try{await db.request('hangout_events?on_conflict=id','POST',row,'resolution=ignore-duplicates,return=minimal')}catch{failedSaves.add(row.id);logFailure('source_save',row.id)}}}
   const touched=[...seenSources.values()].filter(source=>!hasPassed(source,now)).map(source=>source.id)
   for(let i=0;i<touched.length;i+=100){try{await db.request('hangout_events?id=in.'+encodeURIComponent('('+touched.slice(i,i+100).map(id=>JSON.stringify(id)).join(',')+')'),'PATCH',{last_seen_at:now.toISOString(),active:true},'return=minimal')}catch{logFailure('last_seen')}}
   // Published rows retain their last working data/vector while replacement data is staged.
   let cursor=0
   async function worker(){while(cursor<pending.length){
+   if(Date.now()>stopStarting){stats.pending+=pending.length-cursor;cursor=pending.length;break}
    const item=pending[cursor++],source=item.source,old=item.old;let phase='checkpoint'
+   if(failedSaves.has(source.id)){stats.pending++;continue}
    try{
     const saved=await db.request<any[]>('hangout_search_cache?cache_key=eq.'+encodeURIComponent('ingest:pending:'+source.id)+'&select=payload')
     let state:Checkpoint=saved[0]?.payload||{source,hash:item.hash}

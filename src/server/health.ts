@@ -20,7 +20,7 @@ export async function health(){
   }
  }catch{openai='unavailable'}
  let events:unknown=undefined
- if(schemaReady){try{const rows=await supabase().request<any[]>('hangout_events?select=data,embedding_model&limit=1000');const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Tallinn'}).format(new Date());events={stored:rows.length,indexed:rows.filter(r=>r.embedding_model).length,upcoming:rows.filter(r=>r.data?.date>=today).length,techno:rows.filter(r=>r.data?.categories?.some((v:string)=>v.toLowerCase()==='techno')).length,beer:rows.filter(r=>r.data?.categories?.some((v:string)=>v.toLowerCase()==='beer')).length,serverDate:today}}catch{events={status:'unavailable'}}}
+ if(schemaReady){try{const rows:any[]=[];for(let offset=0;;offset+=500){const page=await supabase().request<any[]>('hangout_events?select=data,embedding_model&order=id.asc&limit=500&offset='+offset);rows.push(...page);if(page.length<500)break}const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Tallinn'}).format(new Date());events={stored:rows.length,indexed:rows.filter(r=>r.embedding_model).length,upcoming:rows.filter(r=>r.data?.date>=today).length,techno:rows.filter(r=>r.data?.categories?.some((v:string)=>v.toLowerCase()==='techno')).length,beer:rows.filter(r=>r.data?.categories?.some((v:string)=>v.toLowerCase()==='beer')).length,serverDate:today}}catch{events={status:'unavailable'}}}
  let lastIngestion:unknown=undefined
  if(schemaReady)try{lastIngestion=(await supabase().request<any[]>('hangout_search_cache?cache_key=eq.ingest:last&select=payload'))[0]?.payload}catch{}
  return {configured:true,environment,supabase:database,openai,schemaReady,ready:schemaReady&&openai==='connected',cronConfigured:Boolean(process.env.CRON_SECRET),lastIngestion,events}

@@ -12,6 +12,8 @@ In Vercel → project → Settings → Cron Jobs, use **Run** to test the authen
 
 One `catalog_ingestion` lease in `hangout_ingestion_jobs` covers the entire refresh and indexing operation. It lasts 300 seconds; work stops accepting new event processing well before that deadline so in-flight provider calls can finish. Another cron, build, or manual job returns `already_running`. The lease is removed only by its owner and expires after a crashed process.
 
+The Fienta adapter requests the documented maximum 1000 records per page, follows all pages sequentially (up to a safety ceiling that throws rather than returning a partial snapshot), and spaces page requests by one second. HTTP 403/429 stops the run without retries or bypass. Reference: https://fienta.com/openapi.yaml
+
 Fienta → conservative normalization → match by source + source ID or URL → content hash. Existing future events that disappear are retained; no missing-source purge. Source failure/empty response returns `source_unavailable`, leaves events intact, and does not complete today's job. This permits manual retries. The previous published records remain searchable during updates.
 
 - **New:** raw normalized row is saved immediately. AI enrichment and embedding are generated; the searchable version is published once both succeed.

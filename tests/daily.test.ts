@@ -32,7 +32,7 @@ function fixture(){
   }
   if(route==='hangout_events'){
    if(method==='GET'){const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||500);return response([...rows.values()].slice(offset,offset+limit))}
-   if(method==='POST'){if(!rows.has(body.id))rows.set(body.id,{embedding_model:null,enrichment_version:null,...body});return new Response(null,{status:204})}
+   if(method==='POST'){for(const row of Array.isArray(body)?body:[body])if(!rows.has(row.id))rows.set(row.id,{embedding_model:null,enrichment_version:null,...row});return new Response(null,{status:204})}
    const filter=url.searchParams.get('id')!,ids=filter.startsWith('in.')?JSON.parse('['+filter.slice(4,-1)+']'):[filter.slice(3)]
    for(const id of ids)if(rows.has(id))Object.assign(rows.get(id),body)
    return new Response(null,{status:204})
