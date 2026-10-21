@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build": "node --experimental-strip-types scripts/index-catalog.ts && vite build",
     "api": "node --env-file=.env --experimental-strip-types src/server/index.ts",
     "db:migrate": "node -e \"console.log('Run db/migrations/002_supabase.sql in Supabase SQL Editor.')\"",
     "ingest:ai": "node --env-file=.env --experimental-strip-types scripts/ingest-ai.ts",
-    "test": "node --experimental-strip-types --test tests/*.test.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "index:catalog": "node --env-file=.env --experimental-strip-types scripts/index-catalog.ts"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",

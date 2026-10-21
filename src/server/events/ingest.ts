@@ -24,16 +24,23 @@ export async function ingest(force=false){
   return {mode:'live',total:events.length}
  }finally{await db.request('hangout_ingestion_jobs?name=eq.fienta_refresh&owner=eq.'+owner,'DELETE')}
 }
-export async function indexEvents(rows:StoredEvent[],limit=5){
- const db=supabase();let updated=0
- await Promise.all(rows.filter(r=>r.embedding_model!==embeddingModel()||r.enrichment_version!==ENRICHMENT_VERSION).slice(0,limit).map(async row=>{
-  const owner=randomUUID(),name='index:'+row.id
-  if(!await db.rpc<boolean>('hangout_claim_job',{job_name:name,job_owner:owner,lease_seconds:180}))return
+export async function indexEvents(rows:StoredEvent[],limit=rows.length,onProgress?:(progress:{updated:number;failed:number;skipped:number;total:number})=>void){
+ const db=supabase();let updated=0,failed=0,skipped=0,cursor=0
+ const pending=rows.filter(r=>r.embedding_model!==embeddingModel()||r.enrichment_version!==ENRICHMENT_VERSION).slice(0,limit)
+ async function worker(){while(cursor<pending.length){
+  const row=pending[cursor++],owner=randomUUID(),name='index:'+row.id
+  let acquired=false
   try{
+   acquired=await db.rpc<boolean>('hangout_claim_job',{job_name:name,job_owner:owner,lease_seconds:180})
+   if(!acquired){skipped++;continue}
    const event=await enrichEvent(row.data),text=embeddingText(event),embedding=await embed(text)
-   // An event changed during enrichment must not receive a stale vector.
-   await db.request('hangout_events?id=eq.'+encodeURIComponent(row.id)+'&content_hash=eq.'+row.content_hash,'PATCH',{data:event,embedding:JSON.stringify(embedding),embedding_model:embeddingModel(),enrichment_version:ENRICHMENT_VERSION,enriched_at:new Date().toISOString()},'return=minimal');updated++
-  }finally{await db.request('hangout_ingestion_jobs?name=eq.'+encodeURIComponent(name)+'&owner=eq.'+owner,'DELETE')}
- }))
- return {updated}
+   const saved=await db.request<{id:string}[]>('hangout_events?id=eq.'+encodeURIComponent(row.id)+'&content_hash=eq.'+row.content_hash+'&select=id','PATCH',{data:event,embedding:JSON.stringify(embedding),embedding_model:embeddingModel(),enrichment_version:ENRICHMENT_VERSION,enriched_at:new Date().toISOString()},'return=representation')
+   if(saved?.length===1)updated++;else failed++
+  }catch{failed++}finally{
+   if(acquired)try{await db.request('hangout_ingestion_jobs?name=eq.'+encodeURIComponent(name)+'&owner=eq.'+owner,'DELETE')}catch{ /* Lease expires even if cleanup is unavailable. */ }
+   onProgress?.({updated,failed,skipped,total:pending.length})
+  }
+ }}
+ await Promise.all(Array.from({length:Math.min(5,pending.length)},worker))
+ return {updated,failed,skipped}
 }

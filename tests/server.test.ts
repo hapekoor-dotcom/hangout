@@ -16,13 +16,14 @@ test('database failures never include provider body or credentials',async()=>{
  setup();globalThis.fetch=async()=>json({code:'42P01',message:'test-service-secret'},404)
  await assert.rejects(()=>supabase().request('events'),error=>!String(error).includes('test-service-secret'))
 })
-test('real pipeline contract: Fienta normalization, Supabase persistence, enrichment, vector RPC and reranking',async()=>{
+test('preindex Fienta catalog, then search stored vectors without ingestion or enrichment',async()=>{
  setup()
- const rows:any[]=[];let vectorCalled=false;let rerankIDs:string[]=[]
+ const rows:any[]=[];let vectorCalled=false;let rerankIDs:string[]=[];let searching=false
  const intent={date:null,time:'now',startTime:null,endTime:null,categories:['techno'],excludedCategories:[],budgetMin:null,budgetMax:null,noiseLevel:null,noiseMax:null,kidFriendly:null,soloFriendly:null,socialContext:null,durationHours:null,nearby:false,maxDistanceKm:null,keywords:[],requiredTerms:[],excludeKids:false}
  globalThis.fetch=async(input,options)=>{
   const url=new URL(String(input)),method=options?.method||'GET',body=options?.body?JSON.parse(String(options.body)):{}
   if(url.hostname==='fienta.com'){
+   assert.equal(searching,false,'Search must never fetch Fienta')
    if(url.pathname==='/robots.txt')return new Response('User-agent: *\nDisallow: /private')
    return json({events:[{id:1,is_public:true,title:'Techno night',description:'Techno DJ set in Tallinn.',starts_at:'2099-11-13 21:00:00',url:'https://fienta.com/en/techno',city:'Tallinn',venue:'Test venue'},{id:2,is_public:true,title:'Kohv morning',description:'Coffee tasting',starts_at:'2099-11-13 10:00:00',url:'https://fienta.com/en/kohv',city:'Tallinn'}]})
   }
@@ -32,10 +33,11 @@ test('real pipeline contract: Fienta normalization, Supabase persistence, enrich
    let output:any
    switch(body.text.format.name){
     case 'search_intent':output=intent;break
-    case 'event_enrichment':output={categories:['Techno','Music'],tags:['Techno'],vibe:['energetic'],goodFor:[],noiseLevel:'high',kidFriendly:false,soloFriendly:null,alcoholFocus:null,aiSummary:'A techno DJ evening. The music is loud.'};break
+    case 'event_enrichment':assert.equal(searching,false,'Search must never enrich events');output={categories:['Techno','Music'],tags:['Techno'],vibe:['energetic'],goodFor:[],noiseLevel:'high',kidFriendly:false,soloFriendly:null,alcoholFocus:null,aiSummary:'A techno DJ evening. The music is loud.'};break
     case 'event_ranking':rerankIDs=body.input?JSON.parse(body.input).candidates.map((r:any)=>r.id):[];output={results:[{eventId:'fienta-1',relevance:.95,reason:'Techno DJ set.'},{eventId:'fienta-2',relevance:.99,reason:'Injected coffee result.'}]};break
     default:output={ok:true}
    }
+   if(body.text.format.name==='event_enrichment'&&JSON.parse(body.input).title==='Kohv morning')output={...output,categories:['Coffee'],tags:['Coffee'],aiSummary:'Coffee tasting.'}
    return json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(output)}]}]})
   }
   assert.equal(url.hostname,'unit.supabase.co');assert.equal((options?.headers as any).apikey,'test-service-secret')
@@ -46,10 +48,13 @@ test('real pipeline contract: Fienta normalization, Supabase persistence, enrich
   if(url.pathname.endsWith('/hangout_events')){
    if(method==='GET')return json(rows)
    if(method==='POST'){rows.push(...body);return new Response(null,{status:204})}
-   if(method==='PATCH'){Object.assign(rows.find(r=>r.id===url.searchParams.get('id')?.slice(3)),body);return new Response(null,{status:204})}
+   if(method==='PATCH'){Object.assign(rows.find(r=>r.id===url.searchParams.get('id')?.slice(3)),body);return json([{id:url.searchParams.get('id')?.slice(3)}])}
   }
   throw Error('Unexpected HTTP request')
  }
+ const {ingest,indexEvents}=await import('../src/server/events/ingest.ts')
+ await ingest();const indexing=await indexEvents(rows);assert.equal(indexing.failed,0)
+ searching=true
  const result=await search('techno',{latitude:59.437,longitude:24.7536})
  assert.equal(result.intent.time,null);assert.equal(rows.length,2);assert.equal(vectorCalled,true);assert.deepEqual(rerankIDs,['fienta-1']);assert.deepEqual(result.results.map(r=>r.event.id),['fienta-1']);assert.ok(result.results[0].summary);assert.equal('embedding' in result.results[0].event,false)
  assert.equal(JSON.stringify(result).includes('test-service-secret'),false)
