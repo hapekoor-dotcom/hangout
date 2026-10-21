@@ -41,9 +41,9 @@ test('real pipeline contract: Fienta normalization, Supabase persistence, enrich
   assert.equal(url.hostname,'unit.supabase.co');assert.equal((options?.headers as any).apikey,'test-service-secret')
   if(url.pathname.includes('/rpc/hangout_claim_job'))return json(true)
   if(url.pathname.includes('/rpc/hangout_match_events')){vectorCalled=true;assert.equal(body.query_embedding.length,1536);assert.deepEqual(body.eligible_ids,['fienta-1']);return json(rows.filter(r=>r.id==='fienta-1').map(r=>({data:r.data})))}
-  if(url.pathname.endsWith('/search_cache'))return method==='GET'?json([]):new Response(null,{status:204})
-  if(url.pathname.endsWith('/ingestion_jobs'))return new Response(null,{status:204})
-  if(url.pathname.endsWith('/events')){
+  if(url.pathname.endsWith('/hangout_search_cache'))return method==='GET'?json([]):new Response(null,{status:204})
+  if(url.pathname.endsWith('/hangout_ingestion_jobs'))return new Response(null,{status:204})
+  if(url.pathname.endsWith('/hangout_events')){
    if(method==='GET')return json(rows)
    if(method==='POST'){rows.push(...body);return new Response(null,{status:204})}
    if(method==='PATCH'){Object.assign(rows.find(r=>r.id===url.searchParams.get('id')?.slice(3)),body);return new Response(null,{status:204})}
@@ -56,6 +56,6 @@ test('real pipeline contract: Fienta normalization, Supabase persistence, enrich
 })
 test('Fienta 403 preserves existing database and stops without retries',async()=>{
  setup();let attempts=0
- globalThis.fetch=async(input)=>{const url=String(input);if(url.includes('search_cache'))return json([]);if(url.includes('hangout_claim_job'))return json(true);if(url.includes('ingestion_jobs'))return new Response(null,{status:204});if(url.includes('fienta.com')){attempts++;return json({},403)};throw Error('Unexpected mutation')}
+ globalThis.fetch=async(input)=>{const url=String(input);if(url.includes('hangout_search_cache'))return json([]);if(url.includes('hangout_claim_job'))return json(true);if(url.includes('hangout_ingestion_jobs'))return new Response(null,{status:204});if(url.includes('fienta.com')){attempts++;return json({},403)};throw Error('Unexpected mutation')}
  const {ingest}=await import('../src/server/events/ingest.ts');await assert.rejects(()=>ingest());assert.equal(attempts,1)
 })

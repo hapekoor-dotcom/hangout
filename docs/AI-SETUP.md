@@ -2,7 +2,7 @@
 
 ## Required manual setup
 
-In Supabase → SQL Editor, run the **entire** `db/migrations/002_supabase.sql` file. It is standalone and also works if 001 was already applied. It enables pgvector, creates tables and RPC functions, enables RLS, and grants table/RPC access only to service_role. No browser database permissions are required.
+In Supabase → SQL Editor, run the **entire** `db/migrations/002_supabase.sql` file. It is standalone and also works if 001 was already applied. It enables pgvector, creates dedicated hangout_* tables and RPC functions, enables RLS, and grants table/RPC access only to service_role. Existing public.events, feedback and other tables are left untouched, regardless of their schema. If an earlier attempt failed, run this updated file from the beginning. No browser database permissions are required.
 
 Vercel → Production environment:
 - OPENAI_API_KEY

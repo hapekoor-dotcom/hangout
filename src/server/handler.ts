@@ -15,7 +15,7 @@ export async function handler(req:IncomingMessage&{body?:any},res:ServerResponse
   if(path==='/api/ingest'&&req.method==='POST'){
    const secret=process.env.CRON_SECRET,auth=req.headers.authorization||'',expected='Bearer '+secret
    if(!secret||auth.length!==expected.length||!timingSafeEqual(Buffer.from(auth),Buffer.from(expected))){send(401,{error:'Unauthorized'});return}
-   const result=await ingest(true),rows=await supabase().request<StoredEvent[]>('events?active=eq.true&select=id,data,content_hash,embedding_model,enrichment_version&order=data->>date.asc&limit=1000')
+   const result=await ingest(true),rows=await supabase().request<StoredEvent[]>('hangout_events?active=eq.true&select=id,data,content_hash,embedding_model,enrichment_version&order=data->>date.asc&limit=1000')
    send(200,{...result,...await indexEvents(rows,10)});return
   }
   if(req.method!=='POST'||!['/api/search','/api/feedback'].includes(path)){send(404,{error:'Not found'});return}
@@ -36,6 +36,6 @@ export async function handler(req:IncomingMessage&{body?:any},res:ServerResponse
    send(200,await search(body.query.trim(),p,b));return
   }
   if(typeof body.eventId!=='string'||body.eventId.length>200||typeof body.query!=='string'||body.query.length>400||!['good','not_for_me'].includes(body.verdict)||body.reason&&!['too_far','too_expensive','wrong_vibe','wrong_type','not_what_i_asked'].includes(body.reason)){send(400,{error:'Invalid feedback'});return}
-  await supabase().request('feedback','POST',{event_id:body.eventId,query:body.query,verdict:body.verdict,reason:body.reason||null},'return=minimal');send(201,{saved:true})
+  await supabase().request('hangout_feedback','POST',{event_id:body.eventId,query:body.query,verdict:body.verdict,reason:body.reason||null},'return=minimal');send(201,{saved:true})
  }catch(error){send(error instanceof SyntaxError?400:503,{error:error instanceof SyntaxError?'Invalid request':'Search is unavailable right now. Please try again.'})}
 }
