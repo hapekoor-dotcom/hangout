@@ -19,5 +19,7 @@ export async function health(){
   }else openai='check_pending'
   }
  }catch{openai='unavailable'}
- return {configured:true,environment,supabase:database,openai,schemaReady,ready:schemaReady&&openai==='connected'}
+ let events:unknown=undefined
+ if(schemaReady){try{const rows=await supabase().request<any[]>('hangout_events?select=data,embedding_model&limit=1000');const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Tallinn'}).format(new Date());events={stored:rows.length,indexed:rows.filter(r=>r.embedding_model).length,upcoming:rows.filter(r=>r.data?.date>=today).length,techno:rows.filter(r=>r.data?.categories?.includes('techno')).length,beer:rows.filter(r=>r.data?.categories?.includes('beer')).length,serverDate:today}}catch{events={status:'unavailable'}}}
+ return {configured:true,environment,supabase:database,openai,schemaReady,ready:schemaReady&&openai==='connected',events}
 }
