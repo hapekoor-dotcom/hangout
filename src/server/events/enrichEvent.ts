@@ -1,3 +1,4 @@
+import {canonicalTaxonomy} from './taxonomy.ts'
 import {structured,type Schema} from '../ai/client.ts'
 import type {NormalizedEvent} from '../../lib/events/types.ts'
 export const ENRICHMENT_VERSION='hangout-v1'
@@ -9,5 +10,5 @@ export async function enrichEvent(event:NormalizedEvent){
  const known=Object.fromEntries(Object.entries(enrichment).filter(([,value])=>value!==null))
  // A model cannot relax an explicit source age restriction.
  if(event.kidFriendly===false||Number.parseInt(event.age||'0')>=18)known.kidFriendly=false
- return {...event,...known,rawDescription:event.rawDescription||event.description} as NormalizedEvent
+ return canonicalTaxonomy({...event,...known,rawDescription:event.rawDescription||event.description} as NormalizedEvent)
 }

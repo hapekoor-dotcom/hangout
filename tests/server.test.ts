@@ -32,7 +32,7 @@ test('real pipeline contract: Fienta normalization, Supabase persistence, enrich
    let output:any
    switch(body.text.format.name){
     case 'search_intent':output=intent;break
-    case 'event_enrichment':output={categories:['techno','music'],tags:['techno'],vibe:['energetic'],goodFor:[],noiseLevel:'high',kidFriendly:false,soloFriendly:null,alcoholFocus:null,aiSummary:'A techno DJ evening. The music is loud.'};break
+    case 'event_enrichment':output={categories:['Techno','Music'],tags:['Techno'],vibe:['energetic'],goodFor:[],noiseLevel:'high',kidFriendly:false,soloFriendly:null,alcoholFocus:null,aiSummary:'A techno DJ evening. The music is loud.'};break
     case 'event_ranking':rerankIDs=body.input?JSON.parse(body.input).candidates.map((r:any)=>r.id):[];output={results:[{eventId:'fienta-1',relevance:.95,reason:'Techno DJ set.'},{eventId:'fienta-2',relevance:.99,reason:'Injected coffee result.'}]};break
     default:output={ok:true}
    }

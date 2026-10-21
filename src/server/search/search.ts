@@ -8,7 +8,7 @@ import {retrieveCandidates} from './retrieveCandidates.ts'
 import {rerank} from './rerank.ts'
 import type {Position,Bounds,EventItem} from '../../lib/search/types.ts'
 export async function search(query:string,position:Position,bounds?:Bounds){
- const db=supabase(),key=createHash('sha256').update(JSON.stringify({version:'explicit-time-v2',query:query.trim().toLowerCase(),position,bounds,bucket:Math.floor(Date.now()/300000)})).digest('hex')
+ const db=supabase(),key=createHash('sha256').update(JSON.stringify({version:'canonical-taxonomy-v3',query:query.trim().toLowerCase(),position,bounds,bucket:Math.floor(Date.now()/300000)})).digest('hex')
  const cached=await db.request<any[]>('hangout_search_cache?cache_key=eq.'+key+'&select=payload,expires_at')
  if(cached[0]&&Date.parse(cached[0].expires_at)>Date.now())return cached[0].payload
  let sourceUnavailable=false
