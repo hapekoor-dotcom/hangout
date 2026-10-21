@@ -1,23 +1,32 @@
 import {createHash} from 'node:crypto'
-import {database} from '../db/client.ts'
+import {supabase} from '../db/supabase.ts'
 import {embed} from '../ai/client.ts'
+import {ingest,indexEvents,type StoredEvent} from '../events/ingest.ts'
 import {parseAIIntent} from './parseIntent.ts'
 import {hardFilters} from './hardFilters.ts'
 import {retrieveCandidates} from './retrieveCandidates.ts'
 import {rerank} from './rerank.ts'
 import type {Position,Bounds,EventItem} from '../../lib/search/types.ts'
 export async function search(query:string,position:Position,bounds?:Bounds){
- const db=database(),key=createHash('sha256').update(JSON.stringify({query:query.trim().toLowerCase(),position,bounds,bucket:Math.floor(Date.now()/300000)})).digest('hex')
- const cached=await db.query('SELECT payload FROM search_cache WHERE cache_key=$1 AND expires_at>now()',[key]);if(cached.rows.length)return cached.rows[0].payload
+ const db=supabase(),key=createHash('sha256').update(JSON.stringify({query:query.trim().toLowerCase(),position,bounds,bucket:Math.floor(Date.now()/300000)})).digest('hex')
+ const cached=await db.request<any[]>('search_cache?cache_key=eq.'+key+'&select=payload,expires_at')
+ if(cached[0]&&Date.parse(cached[0].expires_at)>Date.now())return cached[0].payload
+ let sourceUnavailable=false
+ try{await ingest()}catch{sourceUnavailable=true}
  const intent=await parseAIIntent(query)
- const stored=await db.query("SELECT data FROM events WHERE active AND data->>'date'>=to_char(now() AT TIME ZONE 'Europe/Tallinn','YYYY-MM-DD')")
- const records:EventItem[]=stored.rows.map(row=>({...row.data,venue:row.data.venue||'Venue on Fienta'}))
- const eligible=hardFilters(records,intent,position,new Date(),bounds)
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Tallinn'}).format(new Date())
+ const stored=await db.request<StoredEvent[]>('events?active=eq.true&data->>date=gte.'+today+'&select=id,data,content_hash,embedding_model,enrichment_version&order=data->>date.asc&limit=1000')
+ if(!stored.length&&sourceUnavailable)throw Error('Live events unavailable')
+ const records:EventItem[]=stored.map(row=>({...row.data,venue:row.data.venue||'Venue on Fienta'}))
+ const eligible=hardFilters(records,intent,position,new Date(),bounds),ids=new Set(eligible.map(e=>e.id))
+ // Bounded on-demand indexing makes the first real search work without an external scheduler.
+ const pending=stored.filter(row=>ids.has(row.id))
+ await indexEvents(pending)
  const candidates=eligible.length?await retrieveCandidates(eligible,await embed(query)):[]
- const reranked=await rerank(query,intent,candidates,position)
- // Revalidate after reranking; only deterministic-approved IDs can reach the UI.
- const approved=new Set(hardFilters(candidates,intent,position,new Date(),bounds).map(e=>e.id))
+ const approvedCandidates=hardFilters(candidates,intent,position,new Date(),bounds)
+ const reranked=await rerank(query,intent,approvedCandidates,position)
+ const approved=new Set(hardFilters(approvedCandidates,intent,position,new Date(),bounds).map(e=>e.id))
  const payload={intent,results:reranked.filter(r=>approved.has(r.event.id)),mode:'ai'}
- await db.query("INSERT INTO search_cache(cache_key,payload,expires_at) VALUES($1,$2,now()+interval '5 minutes') ON CONFLICT(cache_key) DO UPDATE SET payload=$2,expires_at=now()+interval '5 minutes'",[key,JSON.stringify(payload)])
+ await db.request('search_cache?on_conflict=cache_key','POST',{cache_key:key,payload,expires_at:new Date(Date.now()+300000).toISOString()},'resolution=merge-duplicates,return=minimal')
  return payload
 }

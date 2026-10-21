@@ -1,34 +1,11 @@
 # hangout
 
-A mobile-first event discovery MVP for Tallinn. React, TypeScript, Vite, Tailwind CSS and Leaflet. Real event listings come from the public Fienta API at build time; no prototype events are included.
+Mobile-first event discovery for Tallinn. React, TypeScript, Vite, Supabase pgvector and server-side OpenAI. Real events come from the official Fienta API. No prototype events.
 
-## Run locally
+## Setup
 
-```sh
-pnpm install
-pnpm dev
-pnpm build
-```
+Run `pnpm install`. Apply `db/migrations/002_supabase.sql` in the Supabase SQL Editor, configure OPENAI_API_KEY, SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel, then deploy. See [AI setup](docs/AI-SETUP.md) for verification and ingestion. Secrets are server-only.
 
-The production output is `dist/`. Event ingestion is cached for six hours. `FIENTA_REFRESH=1 pnpm build` forces a refresh. If Fienta refuses access, the app uses the last successful real-event cache or shows an honest empty state. It never invents fallback events.
+`pnpm dev` starts the frontend; `pnpm api` starts the local API using `.env`. `pnpm test` checks the server pipeline with mocked provider HTTP. `pnpm build` builds the frontend. First search ingests real Fienta records and indexes a bounded batch; bulk indexing is documented in AI setup. A blocked source is reported, never bypassed.
 
-## AI backend: prepared, not connected
-
-Postgres + pgvector, OpenAI structured enrichment, embeddings, intent parsing, hard filters, retrieval, reranking and feedback storage are prepared in `src/server/`. They require server-side credentials and a separately hosted Node API. Current public search uses deterministic rules and is labelled accordingly.
-
-See [connection instructions](docs/AI-SETUP.md). Copy `.env.example` to `.env` only on your server. Never commit real credentials.
-
-## Checks
-
-```sh
-pnpm exec tsc --noEmit
-node --experimental-strip-types scripts/test-fienta.ts
-node --experimental-strip-types scripts/test-discovery.ts
-node --experimental-strip-types scripts/test-ai-preparation.ts
-```
-
-Node 24+ is recommended for the TypeScript server scripts.
-
-## Attribution
-
-Tailark-derived hero source is retained under its MIT license in `vendor/tailark/`. Fienta event content remains attributable to its event organisers. Temporary illustrative assets are not official event imagery.
+Tailark source attribution and MIT license: `vendor/tailark`.

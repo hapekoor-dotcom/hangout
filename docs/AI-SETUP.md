@@ -1,40 +1,35 @@
-# Connecting AI search
+# Vercel + Supabase AI search
 
-Status: prepared for connection. The public static site currently contains **real Fienta records only** and explicitly uses the existing rules engine. AI summaries, embeddings, AI intent parsing, reranking, Postgres feedback and geocoding are **not activated** without server credentials. No paid provider calls were made during preparation.
+## Required manual setup
 
-## Runtime
+In Supabase → SQL Editor, run the **entire** `db/migrations/002_supabase.sql` file. It is standalone and also works if 001 was already applied. It enables pgvector, creates tables and RPC functions, enables RLS, and grants table/RPC access only to service_role. No browser database permissions are required.
 
-Use Node 24+, one Postgres database with pgvector, one OpenAI account and optionally OpenCage. The existing Sites deployment remains a static frontend; host the Node API on a server/container and proxy `/api` to it, or supply its HTTPS origin in `VITE_API_URL`. A Postgres/Node backend is not automatically hosted by the static deployment. No browser secrets.
+Vercel → Production environment:
+- OPENAI_API_KEY
+- SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY
 
-1. Copy `.env.example` to `.env` on the server, set `DATABASE_URL`, `OPENAI_API_KEY`, `OPENAI_TEXT_MODEL`, `OPENAI_EMBEDDING_MODEL` and `APP_ORIGIN`. Keep `.env` out of Git. Model examples are configurable; the embedding schema expects 1536 dimensions.
-2. `pnpm install` then `pnpm db:migrate` (requires permission to enable pgvector).
-3. `pnpm ingest:ai`. This explicitly performs paid enrichment/embedding calls once per new or changed event, with a source/model/version hash. It also geocodes unique addresses if an OpenCage key is configured. Run it manually first and inspect updated/failed counts.
-4. Start `pnpm api`. By default it listens on loopback port 8787. The local Vite dev server proxies `/api`. For a container set `API_HOST=0.0.0.0`, terminate TLS at the host and restrict DB network access. `APP_ORIGIN` must match the actual frontend origin.
-5. Only when `/api/health` returns `configured:true`, build the frontend with `VITE_AI_SEARCH=1` and either same-origin `/api` proxying or `VITE_API_URL=https://your-api-host`. Republish the frontend. Model failures return an honest unavailable state, never unrelated recommendations.
-6. Configure **one** scheduled job on the API host to run `pnpm ingest:ai` every six hours. No live scheduler was installed in this preparation. The database advisory lock prevents overlapping ingestion. Fienta failures preserve existing records and stop; no anti-bot bypass or retry loop.
+Redeploy after changing environment variables. No DATABASE_URL, frontend keys, or Supabase anon key are required. Never prefix secret variables with VITE_. Defaults: gpt-4.1-mini and text-embedding-3-small (1536 dimensions). Optional server model overrides: OPENAI_TEXT_MODEL and OPENAI_EMBEDDING_MODEL.
 
-## Data flow
+## Verify
 
-Official Fienta API → conservative normalization → source hash → cached OpenAI structured enrichment → cached geocoding → embedding → Postgres JSONB + pgvector. Search: structured AI intent → factual hard filters → vector candidates (max 25) → structured reranking → deterministic revalidation → minimum relevance 0.75 (max 10). Similarity scores never reach the UI. Explicit budgets, dates, child restrictions, negatives, bounds and distance are enforced in code. The reranker cannot add candidate IDs or reinstate rejected events.
+GET `/api/health`: booleans for environment presence, Supabase connectivity/schema readiness, and a minimal real structured OpenAI request. Provider responses, credentials and raw exception text are never returned or logged. Successful OpenAI checks are cached for five minutes; concurrent checks share a database lease. `migration_required` means run 002; `unavailable` requires checking provider setup. Health returns 503 until ready.
 
-Source metadata remains authoritative. Unknowns stay missing. AI-generated atmosphere fields are separate from source descriptions. The current public site labels no text as AI unless `aiSummary` genuinely comes from enrichment.
+POST `/api/search` with JSON:
+```json
+{"query":"techno","position":{"latitude":59.437,"longitude":24.7536}}
+```
 
-## Event details and feedback
+First search refreshes Fienta into Supabase and indexes up to five eligible records (real summaries and embeddings). This keeps initial serverless work bounded. Subsequent queries progressively index more records. Complete-catalog search requires bulk indexing below; an initial result set can be incomplete while indexing is in progress. Successful Fienta refreshes are cached for six hours. No source protection/authentication bypass. A failed refresh preserves DB records; an empty DB plus failed source returns an unavailable response, never invented events.
 
-The source HTML is retained as `rawDescription` and sanitized on rendering with DOMPurify. Only paragraphs, headings, lists, emphasis, links and line breaks are allowed; source styles, scripts and arbitrary markup are removed. Links are restricted to safe protocols and open with noopener/noreferrer. Plain source text is escaped. The full source description and AI summary render separately.
+Intent parsing → factual hard filters → pgvector retrieval within approved IDs → AI reranking → factual revalidation → clean results. Scores/vectors do not reach the client. Beer/coffee/techno have mandatory category gates. Unknown coordinates stay missing; no geocoding needed. Search results cache for five minutes. Durable per-IP rate limit: 20 requests/minute.
 
-Feedback controls appear only with the connected API. They insert into Postgres `feedback`, including event ID, query, good/not-for-me and optional reason. No fake local-only confirmation. No profiles or personalization are built.
+## Bulk indexing / refresh
 
-## Geocoding
+Optional: add a random server-only CRON_SECRET. POST `/api/ingest` with `Authorization: Bearer <CRON_SECRET>` refreshes the source and indexes the next ten pending records. Repeat until updated=0. This route is disabled without CRON_SECRET. No scheduler is installed.
 
-OpenCage is optional and server-only. Unique normalized addresses are hashed and cached in Postgres. Missing/low-confidence results stay unlocated. Requests run serially with at least 1.1 seconds between calls; configure your subscription accordingly. Map attribution remains OpenStreetMap. Public Nominatim is not used for scheduled bulk geocoding.
+Alternatively run `pnpm ingest:ai` from a trusted server with the three required environment variables to index all records. Ingestion/indexing uses database leases and source hashes to avoid duplicate work and stale embeddings.
 
-## Verification performed
+## Verification limits
 
-TypeScript, production static build, Fienta parser tests, real-only dataset checks, strict schemas, hard filters, candidate ID allowlist, duplicate/weak rerank rejection and API health/503 smoke tests without credentials. Live OpenAI calls, pgvector migration/query execution, real geocoding and durable feedback inserts require configured services and remain untested. Do not treat preparation as a live AI deployment.
-
-References:
-- https://developers.openai.com/api/docs/guides/structured-outputs
-- https://developers.openai.com/api/docs/guides/embeddings
-- https://fienta.com/help/organisers/for-developers
-- https://opencagedata.com/api
+Local tests use mocked provider HTTP responses. Production credentials exist only in Vercel, not the coding environment. A live end-to-end search is verified only after the deployed health check succeeds, SQL migration is applied, and real Fienta ingestion succeeds from Vercel. The local Fienta API returned HTTP 403 during implementation; no workaround is attempted.

@@ -1,0 +1,7 @@
+{
+ "framework":"vite",
+ "buildCommand":"pnpm build",
+ "outputDirectory":"dist",
+ "functions":{"api/*.ts":{"maxDuration":300}},
+ "rewrites":[{"source":"/((?!api/|assets/|fienta-events.json).*)","destination":"/index.html"}]
+}
