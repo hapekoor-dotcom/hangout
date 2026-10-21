@@ -22,3 +22,13 @@ test('explicit techno subgenres and AI tags inherit techno, generic electronic m
  assert.ok(canonicalTaxonomy({categories:['Electronic'],tags:['Techno']}).categories.includes('techno'))
  assert.equal(canonicalTaxonomy({categories:['Electronic','House'],tags:[]}).categories.includes('techno'),false)
 })
+
+test('numeric last_page stops ingestion even when Fienta appends query parameters to an empty next-page URL',async()=>{
+ let calls=0
+ globalThis.fetch=async(input)=>{
+  if(String(input).includes('robots.txt'))return new Response('User-agent: *')
+  calls++
+  return new Response(JSON.stringify({pagination:{page:1,last_page:1,next_page_url:'&per_page=1000'},events:[]}),{headers:{'content-type':'application/json'}})
+ }
+ await fienta.fetchEvents();assert.equal(calls,1)
+})

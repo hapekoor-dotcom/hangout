@@ -25,7 +25,11 @@ const fienta:EventSourceAdapter={id:'fienta',async fetchEvents(){
   const data=await (await get(url.href)).json()
   if(data.pagination?.page!==undefined&&Number(data.pagination.page)!==page)throw Error('Fienta returned an unexpected page; incomplete snapshot rejected')
   all.push(...parseFienta(data))
-  if(!data.pagination?.next_page_url)return all
+  const lastPage=Number(data.pagination?.last_page)
+  // Fienta may append query parameters to a null next-page URL. The numeric boundary is authoritative.
+  const hasLastPage=Number.isInteger(lastPage)&&lastPage>=0
+  if(hasLastPage&&page>=Math.max(1,lastPage))return all
+  if(!hasLastPage&&!data.pagination?.next_page_url)return all
   if(page===100)throw Error('Fienta pagination safety limit reached; incomplete snapshot rejected')
  }
  return all
