@@ -26,11 +26,9 @@ Search requests never fetch Fienta or enrich/index event records. They parse int
 
 Intent parsing → factual hard filters → pgvector retrieval within approved IDs → AI reranking → factual revalidation → clean results. Scores/vectors do not reach the client. Beer/coffee/techno have mandatory category gates. Unknown coordinates stay missing; no geocoding needed. Search results cache for five minutes. Durable per-IP rate limit: 20 requests/minute.
 
-## Bulk indexing / refresh
+## Daily ingestion / manual refresh
 
-Optional: add a random server-only CRON_SECRET. POST `/api/ingest` with `Authorization: Bearer <CRON_SECRET>` refreshes the source and indexes the next ten pending records. Repeat until updated=0. This route is disabled without CRON_SECRET. No scheduler is installed.
-
-Alternatively run `pnpm index:catalog` from a trusted server with the three required environment variables to index and verify all records. Ingestion/indexing uses database leases and source hashes to avoid duplicate work and stale embeddings.
+See [daily ingestion](DAILY-INGESTION.md). A protected Vercel Cron runs once daily at 01:15 UTC (03:15 Tallinn winter / 04:15 summer; Hobby timing may vary within the hour). Set CRON_SECRET in Vercel Production. POST `/api/ingest` is the protected manual trigger. Jobs compare source hashes, reuse unchanged enrichment/vectors, preserve old published data while replacements are pending, deactivate past events, and log safe counts. No new SQL migration is needed.
 
 ## Verification limits
 

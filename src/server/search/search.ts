@@ -8,9 +8,11 @@ import {retrieveCandidates} from './retrieveCandidates.ts'
 import {rerank} from './rerank.ts'
 import type {Position,Bounds,EventItem} from '../../lib/search/types.ts'
 export async function search(query:string,position:Position,bounds?:Bounds){
- const db=supabase(),key=createHash('sha256').update(JSON.stringify({version:'preindexed-catalog-v4',query:query.trim().toLowerCase(),position,bounds,bucket:Math.floor(Date.now()/300000)})).digest('hex')
+ const db=supabase()
+ const rev=await db.request<any[]>('hangout_search_cache?cache_key=eq.catalog_revision&select=payload')
+ const key=createHash('sha256').update(JSON.stringify({version:'daily-catalog-v5',revision:rev[0]?.payload?.value||'initial',query:query.trim().toLowerCase(),position,bounds,bucket:Math.floor(Date.now()/300000)})).digest('hex')
  const cached=await db.request<any[]>('hangout_search_cache?cache_key=eq.'+key+'&select=payload,expires_at')
- if(cached[0]&&Date.parse(cached[0].expires_at)>Date.now())return cached[0].payload
+ if(cached[0]&&Date.parse(cached[0].expires_at)>Date.now()){const payload=cached[0].payload;const allowed=new Set(hardFilters(payload.results.map((r:any)=>r.event),payload.intent,position,new Date(),bounds).map(e=>e.id));return {...payload,results:payload.results.filter((r:any)=>allowed.has(r.event.id))}}
  const intent=await parseAIIntent(query)
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Tallinn'}).format(new Date())
  const stored=await db.request<StoredEvent[]>('hangout_events?active=eq.true&data->>date=gte.'+today+'&select=id,data,content_hash,embedding_model,enrichment_version&order=data->>date.asc&limit=1000')

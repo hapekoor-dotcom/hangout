@@ -2,7 +2,7 @@ import {aiConfigured,searchAPI} from '@/lib/search/api'
 import {getEventFeed} from '@/lib/events'
 import type {EventItem} from '@/lib/search/types'
 import {useEffect,useMemo,useRef,useState} from 'react'
-import {parseIntent,summarizeIntent} from '@/lib/search/parseIntent'
+import {parseIntent} from '@/lib/search/parseIntent'
 import {rankEvents} from '@/lib/search/rankEvents'
 import {MOCK_POSITION,tallinnNow} from '@/lib/search/distance'
 import type {Bounds,RankedEvent,Intent} from '@/lib/search/types'
@@ -32,15 +32,12 @@ export default function Discovery(){
     <form onSubmit={e=>{e.preventDefault();submit()}}><label htmlFor="evening-query" className="sr-only">What would you like to do?</label><div className="query-box"><textarea ref={input} id="evening-query" value={draft} onChange={e=>setDraft(e.target.value)} placeholder="e.g. something to do with friends" rows={2} maxLength={400} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}}}/><button className="discover-primary" type="submit" disabled={searching}>{searching?'Finding…':'Find something'}</button></div></form>
     <p className="search-helper">Tell us what kind of plan you want.</p>
    </section>
-   {searched&&<section className="discovery-results" aria-label="Discovery results"><div className="results-controls"><div className="results-heading"><div><h2>{searched?'Your kind of evening':'A few ideas for tonight'}</h2><p aria-live="polite">{results.length} {results.length===1?'option':'options'} · Tallinn{area?' · map area':''}</p></div><div className="view-switch" role="group" aria-label="Results view"><button aria-pressed={view==='list'} onClick={()=>setView('list')}>List</button><button aria-pressed={view==='map'} onClick={()=>setView('map')}>Map</button></div></div>
-    {searched&&<div className="query-summary"><p>{summarizeIntent(intent)}</p><button onClick={()=>{input.current?.focus();input.current?.scrollIntoView({behavior:'smooth',block:'center'})}}>Edit search</button></div>}
-    {area&&<button className="clear-area" onClick={()=>setArea(undefined)}>Clear map area ×</button>}
-    </div><div className="results-content">
+   {searched&&<section className="discovery-results" aria-label="Discovery results"><div className="results-content">
     {searching&&<p role="status" className="search-status">Finding a few good options…</p>}
     {searchError&&<p role="alert" className="search-status">{searchError}</p>}
     {!searching&&!searchError&&!results.length&&<div className="discovery-empty"><h3>No strong matches right now.</h3><p>{area?'Try widening the map area or clearing it.':'Try a wider area or a different time.'}</p><button onClick={()=>{setArea(undefined);setQuery('');setDraft('');setSearched(false)}}>Show all ideas</button></div>}
     <div hidden={view!=='list'} className="discovery-list">{results.map(item=><EventCard key={item.event.id} item={item} query={query} onOpen={()=>{setSelectedId(item.event.id);setDetail(item)}} onMap={()=>showMap(item)}/>)}</div>
-    <div hidden={view!=='map'}><EventMap items={results} selectedId={selectedId} onSelect={setSelectedId} onOpen={setDetail} onArea={setArea} visible={view==='map'}/></div>
+    <div hidden={view!=='map'}>{view==='map'&&<button className="clear-area" onClick={()=>setView('list')}>Back to results</button>}<EventMap items={results} selectedId={selectedId} onSelect={setSelectedId} onOpen={setDetail} onArea={setArea} visible={view==='map'}/></div>
    </div></section>}
    {searched&&<footer className="discovery-footer">{liveEvents.length?`Fienta · ${liveEvents.length} events · updated ${feedUpdated?new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Tallinn',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(feedUpdated)):''}`:'Fienta feed unavailable · no events loaded'}<span>{aiConfigured?'AI search':'Rules search · AI connection pending'}</span><a href="?app=about">About hangout ↗</a></footer>}
   </main>{detail&&<EventDetail key={detail.event.id} item={detail} onClose={()=>setDetail(null)} onMap={()=>showMap(detail)}/>}

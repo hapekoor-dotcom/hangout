@@ -4,7 +4,7 @@ import {configured} from './env.ts'
 import {health} from './health.ts'
 import {search} from './search/search.ts'
 import {supabase} from './db/supabase.ts'
-import {ingest,indexEvents,type StoredEvent} from './events/ingest.ts'
+import {runIngestion} from './events/daily.ts'
 export async function handler(req:IncomingMessage&{body?:any},res:ServerResponse){
  res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store')
  const send=(status:number,body:unknown)=>{res.writeHead(status);res.end(JSON.stringify(body))}
@@ -12,11 +12,10 @@ export async function handler(req:IncomingMessage&{body?:any},res:ServerResponse
  try{
   if(req.method==='GET'&&path==='/api/health'){const result=await health();send(result.ready?200:503,result);return}
   if(!configured()){send(503,{error:'Server configuration is incomplete.'});return}
-  if(path==='/api/ingest'&&req.method==='POST'){
-   const secret=process.env.CRON_SECRET,auth=req.headers.authorization||'',expected='Bearer '+secret
-   if(!secret||auth.length!==expected.length||!timingSafeEqual(Buffer.from(auth),Buffer.from(expected))){send(401,{error:'Unauthorized'});return}
-   const result=await ingest(true),rows=await supabase().request<StoredEvent[]>('hangout_events?active=eq.true&select=id,data,content_hash,embedding_model,enrichment_version&order=data->>date.asc&limit=1000')
-   send(200,{...result,...await indexEvents(rows,10)});return
+  if((path==='/api/ingest'&&req.method==='POST')||(path==='/api/cron'&&req.method==='GET')){
+   const secret=process.env.CRON_SECRET,auth=Buffer.from(req.headers.authorization||''),expected=Buffer.from('Bearer '+(secret||''))
+   if(!secret||auth.length!==expected.length||!timingSafeEqual(auth,expected)){send(401,{error:'Unauthorized'});return}
+   send(200,await runIngestion({daily:path==='/api/cron'}));return
   }
   if(req.method!=='POST'||!['/api/search','/api/feedback'].includes(path)){send(404,{error:'Not found'});return}
   // Browser callers must be same-origin; no permissive CORS with service-role access.

@@ -1,7 +1,22 @@
 {
- "framework":"vite",
- "buildCommand":"pnpm build",
- "outputDirectory":"dist",
- "functions":{"api/*.ts":{"maxDuration":300}},
- "rewrites":[{"source":"/((?!api/|assets/|fienta-events.json).*)","destination":"/index.html"}]
+  "framework": "vite",
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/*.ts": {
+      "maxDuration": 300
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!api/|assets/|fienta-events.json).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "15 1 * * *"
+    }
+  ]
 }

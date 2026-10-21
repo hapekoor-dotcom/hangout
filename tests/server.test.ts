@@ -64,3 +64,13 @@ test('Fienta 403 preserves existing database and stops without retries',async()=
  globalThis.fetch=async(input)=>{const url=String(input);if(url.includes('hangout_search_cache'))return json([]);if(url.includes('hangout_claim_job'))return json(true);if(url.includes('hangout_ingestion_jobs'))return new Response(null,{status:204});if(url.includes('fienta.com')){attempts++;return json({},403)};throw Error('Unexpected mutation')}
  const {ingest}=await import('../src/server/events/ingest.ts');await assert.rejects(()=>ingest());assert.equal(attempts,1)
 })
+test('expired events cannot return from a previously cached search',async()=>{
+ setup();const {parseIntent}=await import('../src/lib/search/parseIntent.ts')
+ const intent={...parseIntent('techno'),excludeKids:false}
+ globalThis.fetch=async(input)=>{
+  const url=new URL(String(input));assert.equal(url.hostname,'unit.supabase.co')
+  if(url.searchParams.get('cache_key')==='eq.catalog_revision')return json([])
+  return json([{expires_at:'2099-01-01T00:00:00Z',payload:{intent,results:[{event:{id:'old',title:'Past techno',date:'2020-01-01',startTime:'21:00',venue:'Tallinn',description:'Techno',categories:['techno'],tags:[]}}],mode:'ai'}}])
+ }
+ assert.deepEqual((await search('techno',{latitude:59.437,longitude:24.7536})).results,[])
+})
