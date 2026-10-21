@@ -1,0 +1,3 @@
+export type NormalizedEvent={id:string;title:string;description:string;date:string;startTime:string;endTime?:string;endDate?:string;venue?:string;address?:string;price?:number;currency?:'EUR';categories:string[];tags:string[];kidFriendly?:boolean;soloFriendly?:boolean;noiseLevel?:'low'|'medium'|'high';latitude?:number;longitude?:number;image?:string;rawDescription?:string;aiSummary?:string;vibe?:string[];goodFor?:string[];alcoholFocus?:boolean;embeddingText?:string;priceMin?:number;priceMax?:number;ageRestriction?:string;age?:string;source:'fienta';sourceUrl:string}
+export interface EventSourceAdapter{id:string;fetchEvents():Promise<NormalizedEvent[]>}
+export type EventSnapshot={events:NormalizedEvent[];fetchedAt:string;mode:'live'|'cache'|'fallback';failures:string[]}

@@ -1,0 +1,103 @@
+[
+  {
+    "id": "paavli-0",
+    "title": "Veronica Fusaro (CH)",
+    "date": "2026-10-22",
+    "time": "19:00",
+    "venue": "Paavli Kultuurivabrik, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/index.php/lv/veronica-fusaro-tallinn",
+    "image": "https://fienta.com/cf/img/?width=548&height=308&dpr=2&fit=crop&format=webp&gcs=true&file=/org/17595/eCJEnhKHFvwumsJ.png"
+  },
+  {
+    "id": "paavli-1",
+    "title": "Paavli House of Horrors",
+    "date": "2026-10-30",
+    "time": "22:00",
+    "venue": "Paavli Kultuurivabrik, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/index.php/lv/house-of-horrors-paavli",
+    "image": "https://fienta.com/cf/img/?width=548&height=308&dpr=2&fit=crop&format=webp&gcs=true&file=/org/17595/363YanBk8diUw4I.png"
+  },
+  {
+    "id": "paavli-2",
+    "title": "SLAM! Wrestling Fiesta",
+    "date": "2026-11-07",
+    "time": "18:00",
+    "venue": "Paavli Kultuurivabrik, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/index.php/lv/slam-wrestling-fiesta",
+    "image": "https://fienta.com/cf/img/?width=548&height=308&dpr=2&fit=crop&format=webp&gcs=true&file=/org/17595/lKKcCbk887BOuEj.jpg"
+  },
+  {
+    "id": "paavli-3",
+    "title": "PINK TURNS BLUE (DE)",
+    "date": "2026-11-13",
+    "time": "19:00",
+    "venue": "Paavli Kultuurivabrik, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/index.php/lv/pink-turns-blue-paavli-tallinn",
+    "image": "https://fienta.com/cf/img/?width=548&height=308&dpr=2&fit=crop&format=webp&gcs=true&file=/org/17595/zzVD0Hq0m7qljmA.png"
+  },
+  {
+    "id": "paavli-4",
+    "title": "Paavli.Live: Gong (UK)",
+    "date": "2026-11-15",
+    "time": "19:00",
+    "venue": "Paavli Kultuurivabrik, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/index.php/lv/gong-tallinn",
+    "image": "https://fienta.com/cf/img/?width=548&height=308&dpr=2&fit=crop&format=webp&gcs=true&file=/org/17595/vNScj1ig2Dqzv0O.png"
+  },
+  {
+    "id": "paavli-5",
+    "title": "Napalm Death, Master, Brat, Goatburner",
+    "date": "2026-11-17",
+    "time": "19:00",
+    "venue": "Paavli Kultuurivabrik, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/index.php/lv/napalm-death-tallinn",
+    "image": "https://fienta.com/cf/img/?width=548&height=308&dpr=2&fit=crop&format=webp&gcs=true&file=/org/17595/rdc6a4JFmcLMXEF.jpg"
+  },
+  {
+    "id": "paavli-6",
+    "title": "Light in Babylon (TUR)",
+    "date": "2026-11-19",
+    "time": "19:00",
+    "venue": "Paavli Kultuurivabrik, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/index.php/lv/light-in-babylon-tallinn-paavli",
+    "image": "https://fienta.com/cf/img/?width=548&height=308&dpr=2&fit=crop&format=webp&gcs=true&file=/org/17595/aExuHLGLPnqGFrQ.png"
+  },
+  {
+    "id": "paavli-7",
+    "title": "Wyatt E., Five The Hierophant",
+    "date": "2026-11-26",
+    "time": "19:00",
+    "venue": "Paavli Kultuurivabrik, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/index.php/lv/wyatte-five-the-hierophant-tallinn",
+    "image": "https://fienta.com/cf/img/?width=548&height=308&dpr=2&fit=crop&format=webp&gcs=true&file=/org/17595/hy1X56AVXub6G99.jpg"
+  },
+  {
+    "id": "abantu",
+    "title": "ABANTU × MACONDO SESSIONS",
+    "date": "2026-11-06",
+    "time": "23:00",
+    "venue": "Club Prive, Tallinn",
+    "age": "18+",
+    "source": "Fienta",
+    "url": "https://fienta.com/abantu-macondo-sessions-06-11",
+    "image": "https://fienta.com/cf/img/?width=1200&v=1790092487&gcs=true&file=/org/21907/DC5XBfWzEoQoSNb.png"
+  },
+  {
+    "id": "sedaya",
+    "title": "SEDAYA NOCH · DJ MAX MILOVANOV",
+    "date": "2026-11-06",
+    "time": "23:00",
+    "venue": "KAI Estonia, Tallinn",
+    "source": "Fienta",
+    "url": "https://fienta.com/et/06-11-26-sedaya-noch-at-kai-resto-dj-max-milovanov",
+    "image": "https://fienta.com/cf/img/?width=1200&v=1791291875&gcs=true&file=/org/23857/5bby1wO2d4hOb15.png"
+  }
+]

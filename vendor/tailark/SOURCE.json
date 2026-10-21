@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/tailark/blocks",
+  "variant": "radix/mist/hero-section/four",
+  "source_tree_sha": "8139698115c1341bfd2e3e286c04bb4d8146f472",
+  "retrieved": "2026-10-21",
+  "license": "MIT; Copyright (c) 2025 Irung",
+  "original_files": [
+    "hero-section-four/hero-section.tsx",
+    "hero-section-four/header.tsx"
+  ],
+  "adaptation": "Vite DOM-equivalent a/img imports; brand tokens and content; current brand-only header; neutral original Hangout artwork and format labels replace unrelated stock imagery/app screenshot/third-party endorsements. Hero grid/container/button/media/footer-row structure retained.",
+  "DesignMD": "get_design(stripe) and search_blocks both returned HTTP429 daily cap; no DesignMD content or endpoint was bypassed."
+}

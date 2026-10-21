@@ -1,0 +1,36 @@
+{
+  "name": "hangout-hero",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "api": "node --env-file=.env --experimental-strip-types src/server/index.ts",
+    "db:migrate": "node --env-file=.env --experimental-strip-types scripts/db-migrate.ts",
+    "ingest:ai": "node --env-file=.env --experimental-strip-types scripts/ingest-ai.ts"
+  },
+  "dependencies": {
+    "@types/leaflet": "^1.9.22",
+    "@types/pg": "^8.23.1",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "dompurify": "^3.4.17",
+    "leaflet": "^1.9.4",
+    "pg": "^8.23.1",
+    "radix-ui": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "tailwind-merge": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  }
+}
